@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Raphael</title>
+
+    <script src="./js/jquery-1.11.0.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="./js/raphael-min.js" type="text/javascript" charset="utf-8"></script>
+</head>
+<body>
+
+<div id="canvas" style="width:800px;height:400px;"></div>
+<button id="increase">Increase</button>
+<button id="decrease">Decrease</button>
+<script>
+
+  var cone = {
+    rad: function() {
+      return Math.PI / 180;
+    },
+    currentElementNo: 0,
+    angleStep: 45,
+    defAttribs: {
+      fullAngle: 180,
+      elements: [],
+      radius: 50,
+      canvas: {
+        width: 400,
+        height: 400,
+      },
+      colors: {
+        // 1: "#0000FF",
+        // 2: "#F52424",
+        // 3: "#10EB22"
+      }
+    },
+    maximum: 0,
+    canvas: null,
+    init: function(container, attribs) {
+      $.extend(this.defAttribs, attribs);
+
+      this.defAttribs.canvas.width = $('#'+container).width();
+      this.defAttribs.canvas.height = $('#'+container).height();
+
+      this.canvas = Raphael(
+        container,
+        this.defAttribs.canvas.width,
+        this.defAttribs.canvas.height
+      );
+
+      this.render();
+    },
+    render: function() {
+      if (this.defAttribs.elements.length > 0) {
+        this.canvas.clear();
+        this.currentElementNo = 0;
+        this.calculateAngle();
+        this.calculateMax(this.defAttribs.elements);
+        this.calculateRadius();
+
+        this.drawElements(this, this.defAttribs.elements);
+      } else {
+        console.log("You have to give me some elements, man!");
+      }
+    },
+    addElement: function(element) {
+      this.defAttribs.elements.push(element);
+      this.render();
+    },
+    increaseElementValue: function(elementId) {
+      this.defAttribs.elements[elementId].value++;
+      this.render();
+    },
+    decreaseElementValue: function(elementId) {
+      if (this.defAttribs.elements[elementId].value > 0) {
+        this.defAttribs.elements[elementId].value--;
+        this.render();
+      }
+    },
+    setElementValue: function(elementId, val) {
+      this.defAttribs.elements[elementId].value = val;
+      this.render();
+    },
+    calculateMax: function(elements) {
+      var max = 0;
+      for (var n = 0; n < elements.length; n++) {
+        if (max < elements[n].value) max = elements[n].value;
+      }
+
+      this.maximum = max;
+    },
+    calculateAngle: function() {
+      this.angleStep = this.defAttribs.fullAngle / this.defAttribs.elements.length;
+    },
+    calculateRadius: function() {
+      this.defAttribs.radius = this.defAttribs.canvas.width / this.maximum / 2;
+    },
+    drawElements: function(self, elements) {
+      for (var n = 0; n < elements.length; n++) {
+        self.draw(self, elements[n]);
+        self.currentElementNo++;
+      }
+    },
+    draw: function(self, attribs)
+      {
+        var attributes = {
+          cx: self.defAttribs.canvas.width / 2,
+          cy: self.defAttribs.canvas.height,
+          radius: self.defAttribs.radius,
+          startAngle: self.currentElementNo * self.angleStep,
+          endAngle: self.currentElementNo * self.angleStep + self.angleStep,
+        };
+
+        $.extend(attributes, attribs);
+
+        attributes.endAngle = 180 - attributes.endAngle;
+
+        var outerRadius = 0;
+        var innerRadius = 0;
+
+        // if element has value = 2, we will draw 2 cones, etc.
+        for (var m = 1; m <= self.maximum; m++) {
+          // calculating inner and outer radiuses
+          outerRadius = m * attributes.radius;
+          innerRadius = (m-1) * attributes.radius;
+
+          // left line's points (1 and 2)
+          var x1 = attributes.cx - Math.cos(attributes.startAngle * self.rad()) * innerRadius;
+          var y1 = attributes.cy - Math.sin(attributes.startAngle * self.rad()) * innerRadius;
+          var x2 = attributes.cx - Math.cos(attributes.startAngle * self.rad()) * outerRadius;
+          var y2 = attributes.cy - Math.sin(attributes.startAngle * self.rad()) * outerRadius;
+
+          // right line's points (3 and 4)
+          var x3 = attributes.cx + Math.cos(-attributes.endAngle * self.rad()) * outerRadius;
+          var y3 = attributes.cy + Math.sin(-attributes.endAngle * self.rad()) * outerRadius;
+          var x4 = attributes.cx + Math.cos(-attributes.endAngle * self.rad()) * innerRadius;
+          var y4 = attributes.cy + Math.sin(-attributes.endAngle * self.rad()) * innerRadius;
+
+
+          var moveToStartLeft = "M" + x1 + "," + y1 + " ";
+          var drawLeftLine = "L" + x2 + "," + y2 + " ";
+          var drawRightLine = "L" + x4 + "," + y4 + " ";
+          var drawOuterArc = "A" + outerRadius + "," + outerRadius + " 0 0,1 " + x3 + "," + y3 + " ";
+          var drawInnerArc = "A" + innerRadius + "," + innerRadius + " 0 0,0 " + x1 + "," + y1 + " ";
+
+          var curColor = "#ffffff";
+          if (m <= attributes.value) {
+
+            // if there is color missing -> let's get a random one and add it for future reference :)
+            if (!self.defAttribs.colors[m]) {
+              self.defAttribs.colors[m] = this.getRandomColor();
+            }
+            curColor = self.defAttribs.colors[m];
+          }
+
+          self.canvas.path(moveToStartLeft +  drawLeftLine + drawOuterArc + drawRightLine + drawInnerArc + " Z").attr({"type":"path", "stroke":"#333", "fill": "#fff"}).animate({fill: curColor}, 1000, "linear");
+        }
+
+        // for label
+        var textAngle = (attributes.endAngle + self.angleStep / 2);
+        console.log(textAngle);
+        var x_label = attributes.cx + Math.cos(-textAngle * self.rad()) * (outerRadius + 5 );
+        var y_label = attributes.cy + Math.sin(-textAngle * self.rad()) * (outerRadius + 5 );
+
+        self.canvas.text(x_label, y_label, attributes.value)
+          .transform('R' + (90 - textAngle))
+          .attr('cursor', 'pointer');
+      },
+      getRandomColor: function() {
+          var letters = '0123456789ABCDEF'.split('');
+          var color = '#';
+          for (var i = 0; i < 6; i++ ) {
+              color += letters[Math.floor(Math.random() * 16)];
+          }
+          return color;
+      }
+  };
+
+  cone.init("canvas", {
+    fullAngle: 180,
+    elements: [
+      {
+        value: 3,
+      },
+      {
+        value: 1,
+      },
+      {
+        value: 2,
+      },
+      {
+        value: 3,
+      }
+    ]
+  });
+
+  $(document).ready(function(){
+    $('#increase').click(function(){
+      cone.increaseElementValue(1);
+    });
+    $('#decrease').click(function(){
+      cone.decreaseElementValue(1);
+    });
+  });
+
+</script>
+</body>
+</html>
